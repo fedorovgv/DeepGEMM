@@ -2,9 +2,11 @@
 
 #include <deep_gemm/common/types.hpp>
 
+#include "../../jit/device_runtime.hpp"
 #include "../../utils/math.hpp"
 #include "../../utils/layout.hpp"
 #include "../../utils/system.hpp"
+#include <algorithm>
 
 namespace deep_gemm {
 
@@ -255,7 +257,8 @@ static GemmConfig get_best_config(const GemmType& gemm_type, const KernelType& k
     }
 
     // Always pick the largest number of stage
-    constexpr int smem_capacity = ArchSpec::smem_capacity;
+    const int smem_capacity = std::min(ArchSpec::smem_capacity,
+                                       device_runtime->get_max_shared_memory_per_block_optin());
     int best_num_stages = 0;
     SharedMemoryConfig best_smem_config;
     for (int num_stages = 32; num_stages > 0; -- num_stages) {
@@ -319,13 +322,13 @@ static GemmConfig get_best_config(const GemmType& gemm_type, const KernelType& k
         if (printed.count(key) == 0) {
             printf("GEMM type: %d, kernel type: %d, M: %d, N: %d, K: %d, groups: %d, "
                    "A major: %d, B major: %d, MMA kind: %d, A dtype: %s, B dtype: %s, CD dtype: %s, accumulation: %d, "
-                   "SM limit: %d -> block M: %d, block N: %d, block K: %d, stages: %d, last stages: %d, "
+                   "SM limit: %d, smem cap: %d -> block M: %d, block N: %d, block K: %d, stages: %d, last stages: %d, "
                    "SMs: %d, multicast: %d, multicast on A: %d, shared memory: %d bytes, swizzle A: %d, "
                    "swizzle B: %d, swizzle CD: %d, SMs: %d, threads: %d, TC util: %d%%\n",
                    static_cast<int>(gemm_type), static_cast<int>(kernel_type), m, n, k, num_groups,
                    static_cast<int>(major_a), static_cast<int>(major_b), static_cast<int>(mma_kind),
                    c10::toString(a_dtype), c10::toString(b_dtype), c10::toString(cd_dtype),
-                   static_cast<int>(with_accumulation), num_sms, best_block_m, best_block_n, block_k,
+                   static_cast<int>(with_accumulation), num_sms, smem_capacity, best_block_m, best_block_n, block_k,
                    best_num_stages, config.num_last_stages, num_min_sms, best_multicast_config.num_multicast,
                    static_cast<int>(best_multicast_config.is_multicast_on_a),
                    best_smem_config.smem_size, best_smem_config.swizzle_a_mode, best_smem_config.swizzle_b_mode,
