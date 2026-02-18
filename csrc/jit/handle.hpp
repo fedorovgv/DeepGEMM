@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 #include <dlfcn.h>
 #include <filesystem>
+#include <iostream>
 
 #include "../utils/exception.hpp"
 #include "../utils/compatibility.hpp"
@@ -130,8 +131,10 @@ static void unload_library(const LibraryHandle& library) {
 static LaunchConfigHandle construct_launch_config(const KernelHandle& kernel,
                                                  const cudaStream_t& stream, const int& smem_size,
                                                  const dim3& grid_dim, const dim3& block_dim, const int& cluster_dim) {
-    if (smem_size > 0)
+    if (smem_size > 0) {
+        std::cout << "construct_launch_config::smem=" << smem_size << "\n";
         DG_CUDA_DRIVER_CHECK(lazy_cuFuncSetAttribute(kernel, CU_FUNC_ATTRIBUTE_MAX_DYNAMIC_SHARED_SIZE_BYTES, smem_size));
+    }
 
     LaunchConfigHandle config;
     config.gridDimX = grid_dim.x;
